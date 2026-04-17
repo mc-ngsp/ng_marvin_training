@@ -18,10 +18,17 @@ try:
         messages=messages,
         aws_profile_name="serverless-deploy",
         aws_region_name="us-east-1",
+        stream=True,
     )
 except Exception as e:
     print(f"ERROR: Can't invoke '{model_id}'. Reason: {e}")
     exit(1)
 
-print(f"\nMarvin: {response.choices[0].message.content}")
+print("\nMarvin: ", end="", flush=True)
+for chunk in response:
+    # print(chunk)
+    content = chunk.choices[0].delta.content
+    if content:
+        print(content, end="", flush=True)
+print()
 
