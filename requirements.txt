@@ -1,2 +1,2 @@
-boto3
-litellm
+langchain-aws
+dotenv
