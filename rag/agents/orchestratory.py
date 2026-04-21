@@ -5,6 +5,7 @@ from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
 from strands import Agent, tool
+from strands_tools import calculator
 
 from config import SESSION_DIR, MODEL_ID
 from agents.weather_agent import build_weather_agent
@@ -43,7 +44,7 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"Weather agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather]
+    return [query_vector_db, query_weather, calculator]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     session_manager = FileSessionManager(
