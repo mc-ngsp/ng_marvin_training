@@ -11,6 +11,7 @@ def build_hyde_agent() -> Agent:
     )
 
     hyde_agent = Agent(
+        name="HyDE Agent",
         model=model,
         system_prompt="You are a MontyCloud assistant and can answer any questions related to MontyCloud and CloudOps. Generate a detailed, factual-sounding passage that would answer the following question. Write as if it's an excerpt from a blog article.",
         callback_handler=None

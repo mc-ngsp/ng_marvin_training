@@ -1,13 +1,49 @@
 
+import logging
+
 from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
-from strands import Agent
+from strands import Agent, tool
 
 from config import SESSION_DIR, MODEL_ID
+from agents.weather_agent import build_weather_agent
 from tools.query_blogs import query_vector_db
-from tools.weather import get_weather
+from plugins import MemoryInspectionPlugin
 import datetime
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+def _build_tools(session_id: str, user_config: dict | None = None) -> list:
+
+    weather_agent = build_weather_agent(session_id=session_id, user_config=user_config)
+
+    @tool
+    def query_weather(prompt: str) -> str:
+        """
+        Retrieve weather forecast information for a specific location and date.
+
+        Delegates to a dedicated weather sub-agent that calls the get_weather tool
+        to fetch real forecast data. Use this for any weather-related queries such
+        as current conditions, upcoming forecasts, or historical weather for a place.
+
+        Args:
+            prompt: A natural language query describing the location and/or date
+                    for which weather information is requested.
+                    Example: "What's the weather in San Francisco this weekend?"
+
+        Returns:
+            A natural language response describing the weather forecast for the
+            requested location and date. Returns an appropriate message if the
+            query is not weather-related or if no data is available.
+        """
+        logger.debug(f"Calling Weather Agent with prompt: {prompt}")
+        response = weather_agent(prompt)
+        logger.debug(f"Weather agent response: {response}")
+        return response
+
+    return [query_vector_db, query_weather]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     session_manager = FileSessionManager(
@@ -32,10 +68,12 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
         )
 
     agent = Agent(
+        name="Monty Orchestrator",
         model=model,
-        tools=[query_vector_db, get_weather],
+        tools=_build_tools(session_id=session_id, user_config=user_config),
         session_manager=session_manager,
         conversation_manager=conversation_manager,
+        plugins=[MemoryInspectionPlugin()],
         system_prompt=(
             "You are a helpful MontyCloud assistant with access to a knowledge base of blog articles. "
             "Always use the query_vector_db tool to retrieve relevant information about MontyCloud or Cloud Operations before answering."

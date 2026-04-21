@@ -57,3 +57,4 @@ dmypy.json
 Thumbs.db
 
 chroma_db
+logs/
