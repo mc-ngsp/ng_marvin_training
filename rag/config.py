@@ -13,6 +13,7 @@ MODEL_ID = os.environ.get(
     "MODEL_ID",
     "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 )
+REGION_NAME = os.environ.get("REGION_NAME", "us-east-1")
 
 # ── Logging ────────────────────────────────────────────────────────────────
 _LOG_DIR = Path(os.environ.get("LOG_DIR", "logs"))

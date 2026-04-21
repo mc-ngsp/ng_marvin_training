@@ -1,13 +1,13 @@
 from strands.models import BedrockModel
 from strands import Agent
 
-from config import MODEL_ID
+from config import MODEL_ID, REGION_NAME
 
 def build_hyde_agent() -> Agent:
 
     model = BedrockModel(
         model_id=MODEL_ID,
-        region_name="us-east-1",
+        region_name=REGION_NAME,
     )
 
     hyde_agent = Agent(

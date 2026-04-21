@@ -5,10 +5,10 @@ from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
 from strands import Agent, tool
-from strands_tools import calculator
 
-from config import SESSION_DIR, MODEL_ID
+from config import SESSION_DIR, MODEL_ID, REGION_NAME
 from agents.weather_agent import build_weather_agent
+from agents.calculator_agent import build_calculator_agent
 from tools.query_blogs import query_vector_db
 from plugins import MemoryInspectionPlugin
 import datetime
@@ -44,11 +44,35 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"Weather agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather, calculator]
+    # calculator_agent = build_calculator_agent(session_id=session_id)
+    def calculator_agent(prompt: str) -> str:
+        """
+        Perform calculations for math-related queries.
+
+        Delegates to a dedicated calculator sub-agent that calls the calculator tool
+        to compute answers for math problems, equations, or any calculation-related
+        queries. Use this for any questions that involve arithmetic, algebra, or
+        other mathematical computations.
+
+        Args:
+            prompt: A natural language query describing the calculation or math problem.
+                    Example: "What is 15% of 200?" or "Calculate the area of a circle with radius 5."
+
+        Returns:
+            A natural language response describing the answer to the calculation query.
+            Returns an appropriate message if the query is not math-related or if it cannot be computed.
+        """
+        logger.debug(f"Calling Calculator Agent with prompt: {prompt}")
+        response = build_calculator_agent(session_id=session_id)(prompt)
+        logger.debug(f"Calculator agent response: {response}")
+        return response
+
+    return [query_vector_db, query_weather, calculator_agent]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
+    logger.debug(f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}")
     session_manager = FileSessionManager(
-        session_id=f"{session_id}_reviewer",
+        session_id=f"{session_id}_orchestrator",
         storage_dir=SESSION_DIR,
     )
 
@@ -59,7 +83,7 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
 
     model = BedrockModel(
         model_id=MODEL_ID,
-        region_name="us-east-1",
+        region_name=REGION_NAME,
     )
 
     user_context = ""
