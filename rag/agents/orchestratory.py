@@ -9,6 +9,7 @@ from strands import Agent, tool
 from config import SESSION_DIR, MODEL_ID, REGION_NAME
 from agents.weather_agent import build_weather_agent
 from agents.calculator_agent import build_calculator_agent
+from agents.file_operator_agent import build_file_operator_agent
 from tools.query_blogs import query_vector_db
 from plugins import MemoryInspectionPlugin
 import datetime
@@ -67,7 +68,29 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"Calculator agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather, calculator_agent]
+    @tool
+    def file_operations_agent(prompt: str) -> str:
+        """
+        Perform file read/write operations based on user queries.
+
+        Delegates to a dedicated file operator sub-agent that calls the file_read and file_write tools
+        to handle any queries related to reading from or writing to files. Use this for any questions
+        that involve accessing file contents, saving information to files, or modifying files.
+
+        Args:
+            prompt: A natural language query describing the desired file operation.
+                    Example: "Read the contents of report.txt" or "Write 'Hello World' to greeting.txt"
+
+        Returns:
+            A natural language response describing the result of the file operation.
+            Returns an appropriate message if the query is not related to file operations or if the operation fails.
+        """
+        logger.debug(f"Calling File Operator Agent with prompt: {prompt}")
+        response = build_file_operator_agent(session_id=session_id)(prompt)
+        logger.debug(f"File Operator agent response: {response}")
+        return response
+
+    return [query_vector_db, query_weather, calculator_agent, file_operations_agent]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     logger.debug(f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}")
