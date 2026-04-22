@@ -10,6 +10,7 @@ from config import SESSION_DIR, MODEL_ID, REGION_NAME
 from agents.weather_agent import build_weather_agent
 from agents.calculator_agent import build_calculator_agent
 from agents.file_operator_agent import build_file_operator_agent
+from agents.ui_agent import build_ui_agent
 from tools.query_blogs import query_vector_db
 from plugins import MemoryInspectionPlugin
 import datetime
@@ -90,7 +91,27 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"File Operator agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather, calculator_agent, file_operations_agent]
+    @tool
+    def ui_agent(prompt: str) -> str:
+        """
+        Generate HTML/CSS/JS code snippets based on user requests for UI components.
+
+        Delegates to a dedicated UI sub-agent that specializes in building user interfaces using HTML, CSS, and JavaScript.
+        Use this for any queries where the user is asking for help creating or designing UI elements, such as "Create a responsive navbar" or "How do I make a button with a hover effect?"
+
+        Args:
+            prompt: A natural language query describing the desired UI component or design.
+                    Example: "Generate HTML/CSS code for a login form" or "How can I create a grid layout with CSS?"
+
+        Returns:
+            A html/CSS/JS code snippet that fulfills the user's request for a UI component or design. Returns an appropriate message if the query is not related to UI design or if the request cannot be fulfilled.
+        """
+        logger.debug(f"Calling UI Agent with prompt: {prompt}")
+        response = build_ui_agent(session_id=session_id)(prompt)
+        logger.debug(f"UI agent response: {response}")
+        return response
+
+    return [query_vector_db, query_weather, calculator_agent, file_operations_agent, ui_agent]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     logger.debug(f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}")
