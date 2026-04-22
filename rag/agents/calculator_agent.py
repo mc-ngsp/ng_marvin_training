@@ -4,7 +4,7 @@ from strands.models import BedrockModel
 
 from config import MODEL_ID, REGION_NAME
 
-def build_calculator_agent(session_id: str) -> Agent:
+def build_calculator_agent() -> Agent:
     model = BedrockModel(
         model_id=MODEL_ID,
         region_name=REGION_NAME,
