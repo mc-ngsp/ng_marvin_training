@@ -20,8 +20,6 @@ logger.setLevel(logging.DEBUG)
 
 def _build_tools(session_id: str, user_config: dict | None = None) -> list:
 
-    weather_agent = build_weather_agent(session_id=session_id, user_config=user_config)
-
     @tool
     def query_weather(prompt: str) -> str:
         """
@@ -41,19 +39,19 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
             requested location and date. Returns an appropriate message if the
             query is not weather-related or if no data is available.
         """
+        weather_agent = build_weather_agent(session_id=session_id, user_config=user_config)
         logger.debug(f"Calling Weather Agent with prompt: {prompt}")
         response = weather_agent(prompt)
         logger.debug(f"Weather agent response: {response}")
         return response
 
-    # calculator_agent = build_calculator_agent(session_id=session_id)
-    def calculator_agent(prompt: str) -> str:
+    @tool
+    def calculator_agent_as_tool(prompt: str) -> str:
         """
         Perform calculations for math-related queries.
 
-        Delegates to a dedicated calculator sub-agent that calls the calculator tool
-        to compute answers for math problems, equations, or any calculation-related
-        queries. Use this for any questions that involve arithmetic, algebra, or
+        Delegates to a dedicated calculator sub-agent that compute answers for math problems, equations,
+        or any calculation-related queries. Use this for any questions that involve arithmetic, algebra, or
         other mathematical computations.
 
         Args:
@@ -65,7 +63,8 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
             Returns an appropriate message if the query is not math-related or if it cannot be computed.
         """
         logger.debug(f"Calling Calculator Agent with prompt: {prompt}")
-        response = build_calculator_agent(session_id=session_id)(prompt)
+        calculator_agent = build_calculator_agent()
+        response = calculator_agent(prompt)
         logger.debug(f"Calculator agent response: {response}")
         return response
 
@@ -104,14 +103,14 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
                     Example: "Generate HTML/CSS code for a login form" or "How can I create a grid layout with CSS?"
 
         Returns:
-            A html/CSS/JS code snippet that fulfills the user's request for a UI component or design. Returns an appropriate message if the query is not related to UI design or if the request cannot be fulfilled.
+            A link to the generated HTML file that fulfills the user's request for a UI component or design. Returns an appropriate message if the query is not related to UI design or if the request cannot be fulfilled.
         """
         logger.debug(f"Calling UI Agent with prompt: {prompt}")
         response = build_ui_agent(session_id=session_id)(prompt)
         logger.debug(f"UI agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather, calculator_agent, file_operations_agent, ui_agent]
+    return [query_vector_db, query_weather, calculator_agent_as_tool, file_operations_agent, ui_agent]
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     logger.debug(f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}")
@@ -145,11 +144,8 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
         plugins=[MemoryInspectionPlugin()],
         system_prompt=(
             "You are a helpful MontyCloud assistant with access to a knowledge base of blog articles. "
-            "Always use the query_vector_db tool to retrieve relevant information about MontyCloud or Cloud Operations before answering."
-            "You also have access to a weather tool to provide weather forecasts for specific locations and dates."
-            "Note: Always use the information retrieved from the vector database, don't add any additional information that is not supported by the retrieved results." 
-            "Note: If the query_vector_db tool does not return any related information, say that the query is above your pay grade instead of trying to make up an answer. " 
-            "Note: Don't say you are experiencing technical difficulties. Just say the query is above your pay grade."
+            "Important: Always try to use the provided tools to answer user queries instead of relying solely on your model's capabilities. "
+            "If you found the right tool but the tools is unable to give the answer, then you should respond to the user with an appropriate message indicating the tool failure instead of trying to answer the question by yourself. "
             f"{user_context}"
             f"\n\nCurrent date: {datetime.date.today().strftime('%Y-%m-%d')}"
         ),
