@@ -1,0 +1,32 @@
+service: weather-agent
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    slim: false
+    useStaticCache: false
+    useDownloadCache: false
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  architecture: x86_64
+  memorySize: 512
+  timeout: 300
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource:
+            - "arn:aws:bedrock:us-east-1::foundation-model/*"
+            - "arn:aws:bedrock:us-east-1:689546300342:inference-profile/*"
+            - "arn:aws:bedrock:*::foundation-model/*"
+
+functions:
+  weatherAgent:
+    handler: handler.handler
+    description: Weather assistant agent using Strands and NWS API
