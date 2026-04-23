@@ -119,7 +119,7 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
     day2_agent = build_day2_agent(session_id=session_id)
 
     return [
-        query_vector_db,
+        # query_vector_db,
         query_weather,
         calculator_agent_as_tool,
         file_operations_agent,
@@ -142,7 +142,7 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
     )
 
     model = BedrockModel(
-        model_id=MODEL_ID,
+        model_id="us.anthropic.claude-sonnet-4-6",
         region_name=REGION_NAME,
     )
 
@@ -160,11 +160,40 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
         conversation_manager=conversation_manager,
         plugins=[MemoryInspectionPlugin()],
         system_prompt=(
-            "You are a helpful MontyCloud assistant with access to a knowledge base of blog articles. "
-            "Important: Always try to use the provided tools to answer user queries instead of relying solely on your model's capabilities. "
-            "If you found the right tool but the tools is unable to give the answer, then you should respond to the user with an appropriate message indicating the tool failure instead of trying to answer the question by yourself. "
+            "You are an intelligent orchestrator assistant. "
+            "Your role is to coordinate specialized sub-agents and tools to accurately fulfill user requests.\n\n"
+
+            "<instructions>\n"
+            "## Tool Usage\n"
+            "- Always prefer using the provided tools over relying on your own knowledge.\n"
+            "- If a tool fails to return a useful result, report the failure clearly to the user. "
+            "Do NOT attempt to answer the question yourself as a fallback.\n\n"
+
+            "## Planning\n"
+            "Before executing, create a brief plan:\n"
+            "1. Identify the user's intent and break the request into sub-tasks.\n"
+            "2. Classify each sub-task as parallel (async) or sequential.\n"
+            "3. Execute the plan step by step using the appropriate tools.\n\n"
+
+            "<example>\n"
+            "User: What's the weather in New York this weekend, what would it cost to run an EC2 instance there, and save the summary to a file?\n\n"
+            "Plan:\n"
+            "- Sub-task 1: Get weather forecast for New York this weekend → query_weather [async]\n"
+            "- Sub-task 2: Get EC2 cost data for the us-east-1 region → day2_agent [async]\n"
+            "- Sub-task 3: Save the combined summary to a file → file_operations_agent [sequential — depends on results of sub-tasks 1 and 2]\n"
+            "</example>\n\n"
+
+            "## Before Responding\n"
+            "Before finalizing your response:\n"
+            "1. Re-read the user's original request to confirm you have addressed it fully.\n"
+            "2. Review the conversation history for any context that improves your answer.\n"
+            "3. Ensure your response is concise, accurate, and directly answers what was asked.\n"
+            "</instructions>"
+
+            "<context>"
             f"{user_context}"
             f"\n\nCurrent date: {datetime.date.today().strftime('%Y-%m-%d')}"
+            "</context>\n\n"
         ),
     )
 
