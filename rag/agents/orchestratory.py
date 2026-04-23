@@ -1,10 +1,11 @@
-
 import logging
 
 from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
 from strands import Agent, tool
+from strands.tools.mcp import MCPClient
+from mcp import stdio_client, StdioServerParameters
 
 from config import SESSION_DIR, MODEL_ID, REGION_NAME
 from agents.weather_agent import build_weather_agent
@@ -13,7 +14,9 @@ from agents.file_operator_agent import build_file_operator_agent
 from agents.ui_agent import build_ui_agent
 from tools.query_blogs import query_vector_db
 from plugins import MemoryInspectionPlugin
+
 import datetime
+import os
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -39,7 +42,9 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
             requested location and date. Returns an appropriate message if the
             query is not weather-related or if no data is available.
         """
-        weather_agent = build_weather_agent(session_id=session_id, user_config=user_config)
+        weather_agent = build_weather_agent(
+            session_id=session_id, user_config=user_config
+        )
         logger.debug(f"Calling Weather Agent with prompt: {prompt}")
         response = weather_agent(prompt)
         logger.debug(f"Weather agent response: {response}")
@@ -110,10 +115,41 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"UI agent response: {response}")
         return response
 
-    return [query_vector_db, query_weather, calculator_agent_as_tool, file_operations_agent, ui_agent]
+    day2_mcp_client = MCPClient(
+        lambda: stdio_client(
+            StdioServerParameters(
+                command="npx",
+                args=[
+                    "-y",
+                    "mcp-remote",
+                    "https://dev-api.montycloud.com/mcp",
+                    "--header",
+                    "x-api-key:${API_KEY}",
+                    "--header",
+                    "Authorization:${API_SECRET}",
+                ],
+                env={
+                    "API_KEY": os.getenv("MONTY_API_KEY", ""),
+                    "API_SECRET": os.getenv("MONTY_API_SECRET", ""),
+                },
+            )
+        )
+    )
+
+    return [
+        query_vector_db,
+        query_weather,
+        calculator_agent_as_tool,
+        file_operations_agent,
+        ui_agent,
+        day2_mcp_client,
+    ]
+
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
-    logger.debug(f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}")
+    logger.debug(
+        f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}"
+    )
     session_manager = FileSessionManager(
         session_id=f"{session_id}_orchestrator",
         storage_dir=SESSION_DIR,
