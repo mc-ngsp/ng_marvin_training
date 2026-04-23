@@ -12,6 +12,7 @@ from agents.weather_agent import build_weather_agent
 from agents.calculator_agent import build_calculator_agent
 from agents.file_operator_agent import build_file_operator_agent
 from agents.ui_agent import build_ui_agent
+from agents.day2_agent import build_day2_agent
 from tools.query_blogs import query_vector_db
 from plugins import MemoryInspectionPlugin
 
@@ -115,26 +116,7 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         logger.debug(f"UI agent response: {response}")
         return response
 
-    day2_mcp_client = MCPClient(
-        lambda: stdio_client(
-            StdioServerParameters(
-                command="npx",
-                args=[
-                    "-y",
-                    "mcp-remote",
-                    "https://dev-api.montycloud.com/mcp",
-                    "--header",
-                    "x-api-key:${API_KEY}",
-                    "--header",
-                    "Authorization:${API_SECRET}",
-                ],
-                env={
-                    "API_KEY": os.getenv("MONTY_API_KEY", ""),
-                    "API_SECRET": os.getenv("MONTY_API_SECRET", ""),
-                },
-            )
-        )
-    )
+    day2_agent = build_day2_agent(session_id=session_id)
 
     return [
         query_vector_db,
@@ -142,9 +124,8 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         calculator_agent_as_tool,
         file_operations_agent,
         ui_agent,
-        day2_mcp_client,
+        day2_agent,
     ]
-
 
 def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
     logger.debug(
