@@ -1,23 +1,18 @@
 import logging
+import os
+import datetime
 
 from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.models import BedrockModel
-from strands.session.file_session_manager import FileSessionManager
+from strands.session.s3_session_manager import S3SessionManager
 from strands import Agent, tool
-from strands.tools.mcp import MCPClient
-from mcp import stdio_client, StdioServerParameters
 
-from config import SESSION_DIR, MODEL_ID, REGION_NAME
+from config import REGION_NAME
 from agents.weather_agent import build_weather_agent
 from agents.calculator_agent import build_calculator_agent
 from agents.file_operator_agent import build_file_operator_agent
 from agents.ui_agent import build_ui_agent
 from agents.day2_agent import build_day2_agent
-from tools.query_blogs import query_vector_db
-from plugins import MemoryInspectionPlugin
-
-import datetime
-import os
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -131,9 +126,11 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
     logger.debug(
         f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}"
     )
-    session_manager = FileSessionManager(
-        session_id=f"{session_id}_orchestrator",
-        storage_dir=SESSION_DIR,
+
+    session_manager = S3SessionManager(
+        session_id=session_id,
+        bucket=f"marvin-training-{os.getenv('STAGE', '')}",
+        region_name="us-east-1"
     )
 
     conversation_manager = SummarizingConversationManager(
@@ -158,7 +155,6 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
         tools=_build_tools(session_id=session_id, user_config=user_config),
         session_manager=session_manager,
         conversation_manager=conversation_manager,
-        plugins=[MemoryInspectionPlugin()],
         system_prompt=(
             "You are an intelligent orchestrator assistant. "
             "Your role is to coordinate specialized sub-agents and tools to accurately fulfill user requests.\n\n"

@@ -1,0 +1,98 @@
+service: marvin-training
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    slim: false
+    useStaticCache: false
+    useDownloadCache: false
+    zip: true
+    # layer: true
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  architecture: x86_64
+  memorySize: 512
+  timeout: 300
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!logs/**'
+    - '!chroma_db/**'
+    - '!tmp/**'
+    - '!load_data.py'
+
+functions:
+  marvinAgent:
+    handler: handler.handler
+    description: Marvin agent using Strands & Day2 Agent
+    environment:
+      S3_BUCKET_NAME: !Ref MarvinTrainingBucket
+      S3_REPORTS_BUCKET_NAME: !Ref MarvinReportsBucket
+      STAGE: ${sls:stage}
+    iam:
+      role:
+        statements:
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+            Resource:
+              - "arn:aws:bedrock:us-east-1::foundation-model/*"
+              - "arn:aws:bedrock:us-east-1:689546300342:inference-profile/*"
+              - "arn:aws:bedrock:*::foundation-model/*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !GetAtt MarvinTrainingBucket.Arn
+              - !Sub "${MarvinTrainingBucket.Arn}/*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !GetAtt MarvinReportsBucket.Arn
+              - !Sub "${MarvinReportsBucket.Arn}/*"
+
+resources:
+  Resources:
+    MarvinTrainingBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: marvin-training-${sls:stage}
+        AccessControl: Private
+        VersioningConfiguration:
+          Status: Enabled
+
+    MarvinReportsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: marvin-reports-${sls:stage}
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        WebsiteConfiguration:
+          IndexDocument: index.html
+
+    MarvinReportsBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref MarvinReportsBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: s3:GetObject
+              Resource: !Sub "${MarvinReportsBucket.Arn}/*"
