@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marvin WebSocket Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    h1 { font-size: 1.25rem; color: #1a1a1a; }
+
+    .row { display: flex; gap: 8px; align-items: center; }
+
+    input[type="text"], textarea {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: #6366f1; }
+
+    textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-connect  { background: #6366f1; color: #fff; }
+    .btn-disconnect { background: #ef4444; color: #fff; }
+    .btn-send     { background: #10b981; color: #fff; }
+    .btn-clear    { background: #e5e7eb; color: #374151; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #9ca3af;
+    }
+    .dot.connected    { background: #10b981; }
+    .dot.disconnected { background: #ef4444; }
+
+    label { font-size: 0.8rem; color: #6b7280; white-space: nowrap; }
+
+    .messages {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 300px;
+      max-height: 500px;
+      overflow-y: auto;
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user     { background: #e0e7ff; align-self: flex-end; max-width: 80%; }
+    .msg.agent    { background: #fff; border: 1px solid #e5e7eb; align-self: flex-start; max-width: 90%; }
+    .msg.agent.streaming::after {
+      content: "▋";
+      animation: blink 0.8s step-start infinite;
+    }
+    .msg.system   { background: #fef9c3; font-size: 0.8rem; color: #92400e; align-self: center; }
+
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Marvin Agent — WebSocket Test UI</h1>
+
+    <!-- Connection -->
+    <div>
+      <label>WebSocket URL</label>
+      <div class="row" style="margin-top:6px">
+        <input type="text" id="wsUrl" placeholder="wss://xxxxxxxx.execute-api.us-east-1.amazonaws.com/dev" />
+        <button class="btn-connect" id="btnConnect">Connect</button>
+        <button class="btn-disconnect" id="btnDisconnect" disabled>Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Status + Session -->
+    <div class="row" style="justify-content: space-between">
+      <span class="status">
+        <span class="dot disconnected" id="statusDot"></span>
+        <span id="statusText">Disconnected</span>
+      </span>
+      <div class="row">
+        <label>Session ID</label>
+        <input type="text" id="sessionId" style="width:280px;flex:none" />
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages"></div>
+
+    <!-- Input -->
+    <div>
+      <textarea id="prompt" placeholder="Type your message…"></textarea>
+      <div class="row" style="margin-top:8px; justify-content:flex-end">
+        <button class="btn-clear" id="btnClear">Clear</button>
+        <button class="btn-send" id="btnSend" disabled>Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let currentAgentMsg = null;
+
+    const wsUrlInput   = document.getElementById("wsUrl");
+    const sessionInput = document.getElementById("sessionId");
+    const promptInput  = document.getElementById("prompt");
+    const messages     = document.getElementById("messages");
+    const btnConnect   = document.getElementById("btnConnect");
+    const btnDisconnect= document.getElementById("btnDisconnect");
+    const btnSend      = document.getElementById("btnSend");
+    const btnClear     = document.getElementById("btnClear");
+    const statusDot    = document.getElementById("statusDot");
+    const statusText   = document.getElementById("statusText");
+
+    // Pre-fill a session ID
+    sessionInput.value = crypto.randomUUID();
+
+    function setConnected(connected) {
+      statusDot.className  = "dot " + (connected ? "connected" : "disconnected");
+      statusText.textContent = connected ? "Connected" : "Disconnected";
+      btnConnect.disabled    = connected;
+      btnDisconnect.disabled = !connected;
+      btnSend.disabled       = !connected;
+    }
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "msg " + type;
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+      return div;
+    }
+
+    btnConnect.addEventListener("click", () => {
+      const url = wsUrlInput.value.trim();
+      if (!url) return;
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        setConnected(true);
+        addMessage("Connected to " + url, "system");
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "chunk") {
+          if (!currentAgentMsg) {
+            currentAgentMsg = addMessage("", "agent streaming");
+          }
+          currentAgentMsg.textContent += data.data;
+          messages.scrollTop = messages.scrollHeight;
+        }
+
+        if (data.type === "done") {
+          if (currentAgentMsg) {
+            currentAgentMsg.classList.remove("streaming");
+            currentAgentMsg = null;
+          }
+          if (data.session_id) {
+            sessionInput.value = data.session_id;
+          }
+          btnSend.disabled = false;
+        }
+      };
+
+      ws.onclose = () => {
+        setConnected(false);
+        addMessage("Disconnected", "system");
+        currentAgentMsg = null;
+        ws = null;
+      };
+
+      ws.onerror = () => {
+        addMessage("WebSocket error — check the URL and try again.", "system");
+      };
+    });
+
+    btnDisconnect.addEventListener("click", () => {
+      if (ws) ws.close();
+    });
+
+    btnSend.addEventListener("click", sendMessage);
+    promptInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    function sendMessage() {
+      const prompt = promptInput.value.trim();
+      if (!prompt || !ws) return;
+
+      addMessage(prompt, "user");
+      promptInput.value = "";
+      btnSend.disabled = true;
+
+      ws.send(JSON.stringify({
+        action: "message",
+        prompt,
+        session_id: sessionInput.value.trim(),
+      }));
+    }
+
+    btnClear.addEventListener("click", () => {
+      messages.innerHTML = "";
+      currentAgentMsg = null;
+    });
+  </script>
+</body>
+</html>

@@ -122,7 +122,7 @@ def _build_tools(session_id: str, user_config: dict | None = None) -> list:
         day2_agent,
     ]
 
-def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agent:
+def build_orchestrator(session_id: str, user_config: dict | None = None, callback_handler=None) -> Agent:
     logger.debug(
         f"Building orchestrator agent with session_id: {session_id} and user_config: {user_config}"
     )
@@ -155,6 +155,7 @@ def build_orchestrator(session_id: str, user_config: dict | None = None) -> Agen
         tools=_build_tools(session_id=session_id, user_config=user_config),
         session_manager=session_manager,
         conversation_manager=conversation_manager,
+        callback_handler=callback_handler,
         system_prompt=(
             "You are an intelligent orchestrator assistant. "
             "Your role is to coordinate specialized sub-agents and tools to accurately fulfill user requests.\n\n"

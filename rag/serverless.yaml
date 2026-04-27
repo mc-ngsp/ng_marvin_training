@@ -16,6 +16,8 @@ provider:
   architecture: x86_64
   memorySize: 512
   timeout: 300
+  websocketsApiName: marvin-ws
+  websocketsApiRouteSelectionExpression: $request.body.action
 
 package:
   patterns:
@@ -26,16 +28,35 @@ package:
     - '!load_data.py'
 
 functions:
-  marvinAgent:
-    handler: handler.handler
-    description: Marvin agent using Strands & Day2 Agent
+  wsConnect:
+    handler: ws_handler.connect
+    events:
+      - websocket:
+          route: $connect
+
+  wsDisconnect:
+    handler: ws_handler.disconnect
+    events:
+      - websocket:
+          route: $disconnect
+
+  wsChat:
+    handler: ws_handler.message
+    timeout: 300
     environment:
       S3_BUCKET_NAME: !Ref MarvinTrainingBucket
       S3_REPORTS_BUCKET_NAME: !Ref MarvinReportsBucket
       STAGE: ${sls:stage}
+    events:
+      - websocket:
+          route: $default
     iam:
       role:
         statements:
+          - Effect: Allow
+            Action:
+              - execute-api:ManageConnections
+            Resource: "arn:aws:execute-api:*:*:*"
           - Effect: Allow
             Action:
               - bedrock:InvokeModel
