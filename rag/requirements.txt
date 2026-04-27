@@ -1,7 +1,7 @@
-llama-index 
-llama-index-embeddings-bedrock
-llama-index-vector-stores-chroma
+# llama-index
+# llama-index-embeddings-bedrock
+# llama-index-vector-stores-chroma
 strands-agents-tools[calculator]
-chromadb
-strands-agents
-litellm
+python-dotenv
+# chromadb
+# litellm

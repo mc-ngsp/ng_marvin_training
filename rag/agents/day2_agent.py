@@ -3,35 +3,32 @@ from strands.models import BedrockModel
 from strands.session.file_session_manager import FileSessionManager
 from strands.agent.conversation_manager import SummarizingConversationManager
 from strands.tools.mcp import MCPClient
-from mcp import stdio_client, StdioServerParameters
+from mcp.client.streamable_http import streamable_http_client
+import contextlib
+import httpx
 
-from config import SESSION_DIR, MODEL_ID, REGION_NAME
+from config import MODEL_ID, REGION_NAME
 
 import os
 
 
 def build_day2_agent(session_id: str) -> Agent:
 
-    mcp_client = MCPClient(
-        lambda: stdio_client(
-            StdioServerParameters(
-                command="npx",
-                args=[
-                    "-y",
-                    "mcp-remote",
-                    "https://dev-api.montycloud.com/mcp",
-                    "--header",
-                    "x-api-key:${API_KEY}",
-                    "--header",
-                    "Authorization:${API_SECRET}",
-                ],
-                env={
-                    "API_KEY": os.getenv("MONTY_API_KEY", ""),
-                    "API_SECRET": os.getenv("MONTY_API_SECRET", ""),
-                },
-            )
-        )
-    )
+    @contextlib.asynccontextmanager
+    async def http_transport():
+        async with httpx.AsyncClient(
+            headers={
+                "x-api-key": os.getenv("MONTY_API_KEY", ""),
+                "Authorization": os.getenv("MONTY_API_SECRET", ""),
+            }
+        ) as http_client:
+            async with streamable_http_client(
+                "https://dev-api.montycloud.com/mcp",
+                http_client=http_client,
+            ) as streams:
+                yield streams
+
+    mcp_client = MCPClient(http_transport)
 
     agent = Agent(
         name="Day2-Agent",
