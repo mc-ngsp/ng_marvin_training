@@ -30,3 +30,7 @@ functions:
   weatherAgent:
     handler: handler.handler
     description: Weather assistant agent using Strands and NWS API
+    events:
+      - httpApi:
+          path: /weather
+          method: POST
