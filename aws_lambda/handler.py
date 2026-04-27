@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from typing import Any, Dict
@@ -8,11 +9,25 @@ logger = logging.getLogger(__name__)
 
 
 def handler(event: Dict[str, Any], _context) -> Dict[str, Any]:
-    session_id = event.get("session_id") or str(uuid.uuid4())
-    agent = build_weather_agent(session_id)
-    response = agent(event.get("prompt"))
+    # Support both direct invocation and API Gateway HTTP API (payload v2)
+    if "requestContext" in event:
+        body = json.loads(event.get("body") or "{}")
+        session_id = body.get("session_id") or str(uuid.uuid4())
+        prompt = body.get("prompt")
+    else:
+        session_id = event.get("session_id") or str(uuid.uuid4())
+        prompt = event.get("prompt")
 
-    return {
-        "session_id": session_id,
-        "response": str(response),
-    }
+    agent = build_weather_agent(session_id)
+    response = agent(prompt)
+
+    result = {"session_id": session_id, "response": str(response)}
+
+    if "requestContext" in event:
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(result),
+        }
+
+    return result
