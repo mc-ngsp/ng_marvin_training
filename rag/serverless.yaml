@@ -28,11 +28,19 @@ package:
     - '!load_data.py'
 
 functions:
+  wsAuthorizer:
+    handler: authorizer.authorize
+    environment:
+      API_KEY: ${env:API_KEY}
+
   wsConnect:
     handler: ws_handler.connect
     events:
       - websocket:
           route: $connect
+          authorizer:
+            name: wsAuthorizer
+            identitySource: route.request.querystring.x-api-key
 
   wsDisconnect:
     handler: ws_handler.disconnect
