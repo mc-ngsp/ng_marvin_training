@@ -123,6 +123,10 @@
         <button class="btn-connect" id="btnConnect">Connect</button>
         <button class="btn-disconnect" id="btnDisconnect" disabled>Disconnect</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label style="min-width:64px">API Key</label>
+        <input type="text" id="apiKey" placeholder="x-api-key value (leave blank to test rejection)" />
+      </div>
     </div>
 
     <!-- Status + Session -->
@@ -155,6 +159,7 @@
     let currentAgentMsg = null;
 
     const wsUrlInput   = document.getElementById("wsUrl");
+    const apiKeyInput  = document.getElementById("apiKey");
     const sessionInput = document.getElementById("sessionId");
     const promptInput  = document.getElementById("prompt");
     const messages     = document.getElementById("messages");
@@ -186,8 +191,10 @@
     }
 
     btnConnect.addEventListener("click", () => {
-      const url = wsUrlInput.value.trim();
-      if (!url) return;
+      const base = wsUrlInput.value.trim();
+      if (!base) return;
+      const apiKey = apiKeyInput.value.trim();
+      const url = apiKey ? `${base}?x-api-key=${encodeURIComponent(apiKey)}` : base;
       ws = new WebSocket(url);
 
       ws.onopen = () => {
